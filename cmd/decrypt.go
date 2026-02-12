@@ -3,19 +3,13 @@ package cmd
 import (
 	"bytes"
 	"io"
+	"log"
 	"os"
 
 	"filippo.io/age"
 	"github.com/spf13/cobra"
 	"oliverj.io/fragment/internal/shamir"
 	"oliverj.io/fragment/internal/share"
-)
-
-const (
-	ShareBegin   = "-----BEGIN SHARE-----"
-	ShareEnd     = "-----END SHARE-----"
-	PayloadBegin = "-----BEGIN PAYLOAD-----"
-	PayloadEnd   = "-----END PAYLOAD-----"
 )
 
 func init() {
@@ -35,23 +29,23 @@ func decrypt(cmd *cobra.Command, args []string) {
 
 	file, err := os.ReadFile(args[0])
 	if err != nil {
-		return
+		log.Fatalf("Failed to read file: %v", err)
 	}
 
 	s, err := share.Decode(file)
 	if err != nil {
-		return
+		log.Fatalf("Failed to decode share: %v", err)
 	}
 	payload := s.EncryptedBlob
 
 	for i, arg := range args {
 		data, err := os.ReadFile(arg)
 		if err != nil {
-			return
+			log.Fatalf("Failed to read file: %v", err)
 		}
 		shr, err := share.Decode(data)
 		if err != nil {
-			return
+			log.Fatalf("Failed to decode share: %v", err)
 		}
 		shares[i] = *shr
 	}
@@ -60,6 +54,14 @@ func decrypt(cmd *cobra.Command, args []string) {
 
 	for i, shr := range shares {
 		shareKeys[i] = shr.ShamirKey
+	}
+
+	if len(shares) < shares[0].ShareThreshold {
+		log.Fatalf("Unable to recover secret")
+	}
+
+	if len(shares) > shares[0].ShareCount {
+		log.Fatalf("Too many shares")
 	}
 
 	secret, err := shamir.Combine(shareKeys)
@@ -74,6 +76,6 @@ func decrypt(cmd *cobra.Command, args []string) {
 
 	err = os.WriteFile("out.tar.gz", contents, 066)
 	if err != nil {
-		return
+		log.Fatalf("Failed to create output archive: %v", err)
 	}
 }

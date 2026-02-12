@@ -3,6 +3,8 @@ package share
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 
 	nacl "github.com/nathants/go-libsodium"
@@ -24,7 +26,7 @@ type Meta struct {
 func (s *Share) Encode() ([]byte, error) {
 	meta, err := json.Marshal(Meta{s.ShareCount, s.ShareThreshold})
 	if err != nil {
-		return nil, err
+		return nil, errors.New(fmt.Sprintf("Failed to encode metadata to JSON: %v", err))
 	}
 
 	files := []archive.FileEntry{
@@ -36,7 +38,7 @@ func (s *Share) Encode() ([]byte, error) {
 	var out = &bytes.Buffer{}
 	err = archive.CreateArchiveEnt(out, files)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(fmt.Sprintf("Failed to create archive: %v", err))
 	}
 
 	nacl.Init()

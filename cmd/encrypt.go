@@ -90,7 +90,7 @@ func encrypt(cmd *cobra.Command, args []string) {
 
 		err = os.WriteFile(fmt.Sprintf("share-%d.fragment", i+1), shareData, 066)
 		if err != nil {
-			return
+			log.Fatalf("Failed to create fragment: share-%d.fragment: %v", i+1, err)
 		}
 	}
 }
