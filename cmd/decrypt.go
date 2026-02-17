@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/hex"
 	"io"
 	"log"
 	"os"
@@ -12,8 +13,11 @@ import (
 	"oliverj.io/fragment/internal/share"
 )
 
+var key string
+
 func init() {
 	rootCmd.AddCommand(decryptCmd)
+	decryptCmd.Flags().StringVar(&key, "key", "", "")
 }
 
 var decryptCmd = &cobra.Command{
@@ -32,9 +36,25 @@ func decrypt(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to read file: %v", err)
 	}
 
-	s, err := share.Decode(file)
-	if err != nil {
-		log.Fatalf("Failed to decode share: %v", err)
+	var s *share.Share
+	if key != "" {
+		keyBytes, err := hex.DecodeString(key)
+		if err != nil {
+			log.Fatalf("Failed to parse key!")
+			return
+		}
+		s, err = share.DecodeExternKey(file, keyBytes)
+		if err != nil {
+			s, err = share.Decode(file)
+			if err != nil {
+				log.Fatalf("Failed to decode share: %v", err)
+			}
+		}
+	} else {
+		s, err = share.Decode(file)
+		if err != nil {
+			log.Fatalf("Failed to decode share: %v", err)
+		}
 	}
 	payload := s.EncryptedBlob
 
@@ -43,9 +63,25 @@ func decrypt(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Fatalf("Failed to read file: %v", err)
 		}
-		shr, err := share.Decode(data)
-		if err != nil {
-			log.Fatalf("Failed to decode share: %v", err)
+		var shr *share.Share
+		if key != "" {
+			keyBytes, err := hex.DecodeString(key)
+			if err != nil {
+				log.Fatalf("Failed to parse key!")
+				return
+			}
+			shr, err = share.DecodeExternKey(data, keyBytes)
+			if err != nil {
+				shr, err = share.Decode(data)
+				if err != nil {
+					log.Fatalf("Failed to decode share: %v", err)
+				}
+			}
+		} else {
+			shr, err = share.Decode(data)
+			if err != nil {
+				log.Fatalf("Failed to decode share: %v", err)
+			}
 		}
 		shares[i] = *shr
 	}

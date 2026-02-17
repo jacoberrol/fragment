@@ -61,6 +61,39 @@ func (s *Share) Encode() ([]byte, error) {
 	return output.Bytes(), nil
 }
 
+func DecodeExternKey(data []byte, key []byte) (*Share, error) {
+	nacl.Init()
+
+	var arc bytes.Buffer
+	err := nacl.StreamDecrypt(key, bytes.NewReader(data), &arc)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to decrypt fragment! %v", err))
+	}
+
+	files := archive.ReadArchiveEnt(&arc)
+
+	var share = &Share{}
+
+	for _, file := range files {
+		switch file.Name {
+		case "SHARE.txt":
+			share.ShamirKey = file.Data
+		case "MANIFEST.age":
+			share.EncryptedBlob = file.Data
+		case "metadata.json":
+			var meta = &Meta{}
+			err := json.Unmarshal(file.Data, meta)
+			if err != nil {
+				return nil, err
+			}
+			share.ShareCount = meta.ShareCount
+			share.ShareThreshold = meta.ShareThreshold
+		}
+	}
+
+	return share, nil
+}
+
 func Decode(data []byte) (*Share, error) {
 	nacl.Init()
 
@@ -70,7 +103,7 @@ func Decode(data []byte) (*Share, error) {
 	var arc bytes.Buffer
 	err := nacl.StreamDecrypt(key, bytes.NewReader(encryptedArc), &arc)
 	if err != nil {
-		panic(err)
+		return nil, errors.New(fmt.Sprintf("Failed to decrypt fragment! %v", err))
 	}
 
 	files := archive.ReadArchiveEnt(&arc)
